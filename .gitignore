@@ -1,0 +1,32 @@
+# Colcon Build-Ordner
+build/
+install/
+log/
+!/build/.gitkeep
+!.gitkeep
+!.gitignore
+
+*.bak
+*#
+.#*
+
+# Python-Artefakte
+*.pyc
+*.pyo
+*.pcd
+__pycache__/
+*.egg-info/
+
+# IDEs und Editor-Dateien
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+CMakeLists.txt.user
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db

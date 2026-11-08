@@ -1,0 +1,70 @@
+/**:
+    ros__parameters:
+        use_sim_time: false
+
+led_node:
+    ros__parameters:
+        pin_led1: 9
+        pin_led2: 25
+        pin_led3: 11
+
+buzzer_node:
+    ros__parameters:
+        gpio_chip: 0
+        pin_buzzer: 18
+        default_frequency: 1000.0
+
+ultrasonic_node:
+    ros__parameters:
+        chip_path: "/dev/gpiochip0"
+        pin_trig: 23
+        pin_echo: 24
+        frame_id: "ultrasonic_link"
+        rate_hz: 10.0
+        min_range: 0.02
+        max_range: 4.00
+
+oled_node:
+    ros__parameters:
+        bus_number: 1
+        i2c_address: 0x3C
+
+motor_node:
+    ros__parameters:
+        bus_number: 1
+        pca9685_address: 0x5F
+        pwm_frequency: 50.0
+        steering_channel: 0
+        steering_center_angle: 90.0
+        steering_min_pulse_us: 500.0
+        steering_max_pulse_us: 2400.0
+        steering_gain: 30.0
+        invert_steering: false
+
+        # 3-faches Array fuer alle 16 Kanaele (CH0 bis CH15):
+        # CH0 = Lenkung, CH1 = Basis, CH2 = Schulter, CH3 = Ellbogen, CH4 = Greifer (AD002)
+        servo_offsets: [25.0, 23.0, 4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        servo_mins:    [60.0, 10.0, 10.0, 10.0, 67.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        servo_maxs:    [120.0, 170.0, 170.0, 170.0, 130.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+
+        motor1_in1: 15
+        motor1_in2: 14
+        motor2_in1: 12
+        motor2_in2: 13
+        invert_motor1: false
+        invert_motor2: false
+        max_linear_speed: 1.0
+        cmd_vel_timeout: 0.5
+
+mpu6050_node:
+    ros__parameters:
+        bus_number: 1
+        device_address: 0x68
+        frame_id: "imu_link"
+        frequency: 50
+        calibrate: true
+        calibration_samples: 50
+        gyro_range: 0
+        accel_range: 0
+        dlpf_bandwidth: 2
+

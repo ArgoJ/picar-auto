@@ -1,0 +1,7 @@
+int32 channel
+---
+float64 offset
+float64 min_angle
+float64 max_angle
+bool success
+string message
