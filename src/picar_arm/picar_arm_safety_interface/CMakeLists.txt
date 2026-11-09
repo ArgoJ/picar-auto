@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.16)
+project(picar_arm_safety_interface)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.27)
+    cmake_policy(SET CMP0148 OLD)
+endif()
+
+# --- ROS DEPENDENCIES ---
+find_package(ament_cmake REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+# --- INTERFACES ---
+set(MSG_FILES
+  "msg/State.msg"
+  "msg/Control.msg"
+  "msg/References.msg"
+  "msg/Parameters.msg"
+)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${MSG_FILES}
+  DEPENDENCIES std_msgs
+)
+
+ament_package()

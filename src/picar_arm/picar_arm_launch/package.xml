@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+    <name>picar_arm_launch</name>
+    <version>0.1.0</version>
+    <description>Uebergeordnetes ROS 2 Meta- und Launch-Package fuer das PiCar Arm Acados MPC System</description>
+    <maintainer email="josua.lindemann@outlook.de">Josua Lindemann</maintainer>
+    <license>MIT</license>
+
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
+    <depend>picar_arm_safety_interface</depend>
+    <depend>picar_arm_safety</depend>
+    <depend>picar_arm_handler</depend>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
+</package>
