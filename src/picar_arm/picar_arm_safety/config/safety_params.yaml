@@ -1,0 +1,28 @@
+picar_arm_safety_node:
+    ros__parameters:
+        # Zykluszeit [s] (20 Hz, abgestimmt auf arm_handler_node)
+        ts: 0.05
+        verbose: true
+
+        # Gelenkwinkel- und Geschwindigkeitsgrenzen [rad bzw. rad/s]
+        # lbx/ubx = [q1, q2, q3, v1, v2, v3]
+        # lbu/ubu = [vc1, vc2, vc3] (Steuer-Winkelgeschwindigkeit pro Gelenk)
+        # Hinweise: 1.0 rad/s entspricht ca. 57.3 Grad/s (Acados-Default war 3.0 rad/s)
+        constraints:
+            lbu: [-1.0, -1.0, -1.0]
+            ubu: [1.0, 1.0, 1.0]
+            lbx: [-1.4, -0.1, -1.6, -1.0, -1.0, -1.0]
+            ubx: [1.4, 2.35, 1.4, 1.0, 1.0, 1.0]
+            lh:   [-0.020, -0.015, -0.015, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            lh_e: [-0.020, -0.015, -0.015, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        # Gewichtungsmatrizen (Diagonale):
+        # W_0 / W = [q1, q2, q3, (u1-v1), (u2-v2), (u3-v3), u1, u2, u3]
+        # W_e     = [q1, q2, q3]
+        cost:
+            W_0: [25.0, 25.0, 25.0, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05]
+            W:   [25.0, 25.0, 25.0, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05]
+            W_e: [25.0, 25.0, 25.0]
+
+        solver_options:
+            print_level: 0

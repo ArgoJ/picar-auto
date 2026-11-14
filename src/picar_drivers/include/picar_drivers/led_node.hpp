@@ -7,6 +7,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/int32.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace picar_drivers {
 
@@ -28,6 +29,9 @@ private:
     void onLed2Cmd(const std_msgs::msg::Bool::SharedPtr msg);
     void onLed3Cmd(const std_msgs::msg::Bool::SharedPtr msg);
     void onAllCmd(const std_msgs::msg::Bool::SharedPtr msg);
+    void onToggleAll(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
     std::string chip_path_{"/dev/gpiochip0"};
     int pin_led1_{9};
@@ -46,6 +50,8 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_led2_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_led3_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_all_;
+
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_toggle_all_;
 
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub_status_;
 };

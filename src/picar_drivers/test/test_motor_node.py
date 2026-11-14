@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # File name   : test_motor_node.py
-# Description : Tests fuer die picar_drivers MotorNode (Antrieb & Lenkung ueber PCA9685)
+# Description : Tests fuer die picar_drivers MotorNode (DC-Antriebsmotoren ueber PCA9685)
 import os
 import sys
 import time
@@ -28,8 +28,8 @@ def test_motor_node_lifecycle(ros_context):
         stop_node_process(proc)
 
 
-def test_motor_node_cmd_vel_drive_and_steering(ros_context):
-    """Testet Geschwindigkeits- und Lenkvorgaben ueber cmd_vel."""
+def test_motor_node_cmd_vel_drive(ros_context):
+    """Testet Geschwindigkeitsvorgaben ueber cmd_vel und picar/motor/cmd_vel."""
     proc = start_node_process("motor_node")
     test_node = Node("test_motor_client")
 
@@ -42,48 +42,36 @@ def test_motor_node_cmd_vel_drive_and_steering(ros_context):
             10
         )
         pub_cmd_vel = test_node.create_publisher(Twist, "cmd_vel", 10)
+        pub_picar_cmd_vel = test_node.create_publisher(Twist, "picar/motor/cmd_vel", 10)
 
         assert wait_for_subscribers(pub_cmd_vel), "motor_node hat cmd_vel nicht abonniert"
+        assert wait_for_subscribers(pub_picar_cmd_vel), "motor_node hat picar/motor/cmd_vel nicht abonniert"
         assert wait_for_publishers(test_node, "picar/motor/status"), "motor_node publiziert nicht auf picar/motor/status"
 
-        def send_and_wait(throttle_exp, steering_exp, twist_msg, timeout=2.0):
+        def send_and_wait(pub, throttle_exp, twist_msg, timeout=2.0):
             received_status.clear()
-            pub_cmd_vel.publish(twist_msg)
+            pub.publish(twist_msg)
             t_end = time.time() + timeout
             while time.time() < t_end:
                 rclpy.spin_once(test_node, timeout_sec=0.05)
                 if received_status:
                     last = received_status[-1]
-                    if (abs(last.linear.x - throttle_exp) < 0.05 and
-                            abs(last.angular.z - steering_exp) < 1.5):
+                    if abs(last.linear.x - throttle_exp) < 0.05:
                         return True
             return False
 
-        # 1. Vorwaerts (50%) geradeaus
+        # 1. Vorwaerts (50%) ueber cmd_vel
         msg = Twist()
         msg.linear.x = 0.5
-        msg.angular.z = 0.0
-        assert send_and_wait(0.5, 90.0, msg), f"Vorwaerts fehlgeschlagen: {received_status}"
+        assert send_and_wait(pub_cmd_vel, 0.5, msg), f"Vorwaerts fehlgeschlagen: {received_status}"
 
-        # 2. Rueckwaerts (-40%) geradeaus
+        # 2. Rueckwaerts (-40%) ueber picar/motor/cmd_vel
         msg.linear.x = -0.4
-        msg.angular.z = 0.0
-        assert send_and_wait(-0.4, 90.0, msg), f"Rueckwaerts fehlgeschlagen: {received_status}"
+        assert send_and_wait(pub_picar_cmd_vel, -0.4, msg), f"Rueckwaerts fehlgeschlagen: {received_status}"
 
-        # 3. Vollanschlag Links (angular.z = +1.0 rad/s -> 90 + 30 = 120 Grad)
-        msg.linear.x = 0.2
-        msg.angular.z = 1.0
-        assert send_and_wait(0.2, 120.0, msg), f"Lenkung Links fehlgeschlagen: {received_status}"
-
-        # 4. Vollanschlag Rechts (angular.z = -1.0 rad/s -> 90 - 30 = 60 Grad)
-        msg.linear.x = 0.2
-        msg.angular.z = -1.0
-        assert send_and_wait(0.2, 60.0, msg), f"Lenkung Rechts fehlgeschlagen: {received_status}"
-
-        # 5. Stopp & Neutrallenkung
+        # 3. Stopp
         msg.linear.x = 0.0
-        msg.angular.z = 0.0
-        assert send_and_wait(0.0, 90.0, msg), f"Stopp fehlgeschlagen: {received_status}"
+        assert send_and_wait(pub_cmd_vel, 0.0, msg), f"Stopp fehlgeschlagen: {received_status}"
 
     finally:
         test_node.destroy_node()
@@ -165,46 +153,6 @@ def test_motor_node_emergency_stop_and_watchdog(ros_context):
                 break
 
         assert watchdog_triggered, "Watchdog hat Motoren nach Timeout nicht gestoppt!"
-
-    finally:
-        test_node.destroy_node()
-        stop_node_process(proc)
-
-
-def test_motor_node_servo_and_gripper_clamping(ros_context):
-    """Testet die Ansteuerung beliebiger Servokanaele (CH1) und des AD002 Greifers (CH4)."""
-    proc = start_node_process("motor_node")
-    test_node = Node("test_servo_client")
-
-    try:
-        from std_msgs.msg import Float32, Float32MultiArray, Int32
-        pub_servo = test_node.create_publisher(Float32MultiArray, "picar/servo/cmd", 10)
-        pub_gripper = test_node.create_publisher(Float32, "picar/gripper/cmd", 10)
-        pub_release = test_node.create_publisher(Int32, "picar/servo/release", 10)
-
-        assert wait_for_subscribers(pub_servo)
-        assert wait_for_subscribers(pub_gripper)
-        assert wait_for_subscribers(pub_release)
-
-        # 1. Greifer auf 90 Grad
-        g_msg = Float32()
-        g_msg.data = 90.0
-        pub_gripper.publish(g_msg)
-        rclpy.spin_once(test_node, timeout_sec=0.1)
-
-        # 2. Servo CH1 auf 80 Grad
-        s_msg = Float32MultiArray()
-        s_msg.data = [1.0, 80.0]
-        pub_servo.publish(s_msg)
-        rclpy.spin_once(test_node, timeout_sec=0.1)
-
-        # 3. Greifer stromlos schalten
-        r_msg = Int32()
-        r_msg.data = 4
-        pub_release.publish(r_msg)
-        rclpy.spin_once(test_node, timeout_sec=0.1)
-
-        assert proc.poll() is None, "MotorNode abgestuerzt waehrend Servo-Kommandos!"
 
     finally:
         test_node.destroy_node()

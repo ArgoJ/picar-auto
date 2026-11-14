@@ -79,7 +79,7 @@ def test_kalibration_services(ros_context):
     test_yaml = os.path.join(tmp_dir, "test_params.yaml")
     with open(test_yaml, "w", encoding="utf-8") as f:
         f.write(
-            "motor_node:\n"
+            "servo_node:\n"
             "    ros__parameters:\n"
             "        servo_offsets: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]\n"
             "        servo_mins:    [60.0, 10.0, 30.0, 30.0, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]\n"

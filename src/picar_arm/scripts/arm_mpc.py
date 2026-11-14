@@ -226,12 +226,12 @@ def create_arm_ocp(
     ocp.cost.Vx_e = Vx_e
 
     W = np.diag([
-        5.0, 5.0, 5.0,
+        25.0, 25.0, 25.0,
         0.1, 0.1, 0.1,
-        0.2, 0.2, 0.2
+        0.05, 0.05, 0.05
     ])
     W_0 = W.copy()
-    W_e = np.diag([5.0, 5.0, 5.0])
+    W_e = np.diag([25.0, 25.0, 25.0])
 
     ocp.cost.W = W
     ocp.cost.W_0 = W_0
@@ -244,12 +244,12 @@ def create_arm_ocp(
     # =========================================================================
     # CONSTRAINTS & SLACK-VARIABLEN
     # =========================================================================
-    ocp.constraints.lbx = np.array([-1.4, -0.8, -1.6, -3.0, -3.0, -3.0])
-    ocp.constraints.ubx = np.array([ 1.4,  1.6,  1.6,  3.0,  3.0,  3.0])
+    ocp.constraints.lbx = np.array([-1.4, -0.8, -1.6, -1.0, -1.0, -1.0])
+    ocp.constraints.ubx = np.array([ 1.4,  1.6,  1.6,  1.0,  1.0,  1.0])
     ocp.constraints.idxbx = np.arange(nx)
 
-    ocp.constraints.lbu = np.array([-3.0, -3.0, -3.0])
-    ocp.constraints.ubu = np.array([ 3.0,  3.0,  3.0])
+    ocp.constraints.lbu = np.array([-1.0, -1.0, -1.0])
+    ocp.constraints.ubu = np.array([ 1.0,  1.0,  1.0])
     ocp.constraints.idxbu = np.arange(nu)
 
     ocp.constraints.x0 = np.zeros(nx)

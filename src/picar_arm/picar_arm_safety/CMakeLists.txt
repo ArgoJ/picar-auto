@@ -69,6 +69,11 @@ install(DIRECTORY
     DESTINATION include
 )
 
+install(DIRECTORY
+    config
+    DESTINATION share/${PROJECT_NAME}
+)
+
 install(FILES 
     ${ACADOS_GENERATED_CODE_DIR}/libacados_ocp_solver_ocp_picar_arm_safety_filter_809ed34e.so
     DESTINATION lib

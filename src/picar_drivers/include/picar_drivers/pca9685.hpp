@@ -26,8 +26,7 @@ public:
     // DC-Motor-Steuerung (Slow Decay H-Bruecke)
     void setMotorThrottle(int pin_in1, int pin_in2, double throttle, bool slow_decay = true);
 
-    // Notabschaltung aller Kanäle
-    void allOff();
+    // Chip aufwecken (falls im Sleep-Modus)
     void wakeUp();
 
     int getBusNumber() const { return bus_number_; }
@@ -44,14 +43,10 @@ private:
     double frequency_{50.0};
 
     // PCA9685 Register-Adressen
-    static constexpr uint8_t REG_MODE1         = 0x00;
-    static constexpr uint8_t REG_MODE2         = 0x01;
-    static constexpr uint8_t REG_LED0_ON_L     = 0x06;
-    static constexpr uint8_t REG_ALL_LED_ON_L  = 0xFA;
-    static constexpr uint8_t REG_ALL_LED_ON_H  = 0xFB;
-    static constexpr uint8_t REG_ALL_LED_OFF_L = 0xFC;
-    static constexpr uint8_t REG_ALL_LED_OFF_H = 0xFD;
-    static constexpr uint8_t REG_PRE_SCALE     = 0xFE;
+    static constexpr uint8_t REG_MODE1     = 0x00;
+    static constexpr uint8_t REG_MODE2     = 0x01;
+    static constexpr uint8_t REG_LED0_ON_L = 0x06;
+    static constexpr uint8_t REG_PRE_SCALE = 0xFE;
 };
 
 }  // namespace picar_drivers

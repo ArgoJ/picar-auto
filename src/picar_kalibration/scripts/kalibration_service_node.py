@@ -3,13 +3,10 @@
 # Description : Zentraler Kalibrierungs-Service fuer PiCar Servos und Motoren
 import os
 import re
-import sys
 import rclpy
 from rclpy.node import Node
-from rclpy.parameter import Parameter
 from rcl_interfaces.srv import SetParameters
 from rcl_interfaces.msg import Parameter as MsgParameter, ParameterType, ParameterValue
-from std_msgs.msg import Float32MultiArray
 
 from picar_kalibration.srv import (
     GetServoCalibration,
@@ -51,11 +48,8 @@ class KalibrationServiceNode(Node):
             self.handle_save
         )
 
-        # Publisher fuer Test-Fahrten
-        self.pub_servo = self.create_publisher(Float32MultiArray, "picar/servo/cmd", 10)
-
-        # Parameter-Client fuer MotorNode
-        self.cli_set_params = self.create_client(SetParameters, "/motor_node/set_parameters")
+        # Parameter-Client fuer ServoNode
+        self.cli_set_params = self.create_client(SetParameters, "/servo_node/set_parameters")
 
         self.get_logger().info(
             f"KalibrationServiceNode aktiv. Config: {self.config_path}. Services unter /picar_kalibration/* verfuegbar."
@@ -94,8 +88,8 @@ class KalibrationServiceNode(Node):
         except Exception as e:
             self.get_logger().error(f"Fehler beim Laden von {path}: {e}")
 
-    def sync_to_motor_node(self):
-        """Aktualisiert die Parameter in /motor_node via ROS 2 SetParameters Service."""
+    def sync_to_servo_node(self):
+        """Aktualisiert die Parameter in /servo_node via ROS 2 SetParameters Service."""
         if not self.cli_set_params.service_is_ready():
             return False
 
@@ -127,7 +121,7 @@ class KalibrationServiceNode(Node):
         self.mins[ch] = float(request.min_angle)
         self.maxs[ch] = float(request.max_angle)
 
-        self.sync_to_motor_node()
+        self.sync_to_servo_node()
 
         response.success = True
         response.message = f"Kanal CH{ch} aktualisiert: Offset={self.offsets[ch]:.1f}, Min={self.mins[ch]:.1f}, Max={self.maxs[ch]:.1f}"

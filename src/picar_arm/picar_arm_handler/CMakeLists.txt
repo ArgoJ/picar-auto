@@ -11,6 +11,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(picar_arm_safety_interface REQUIRED)
 
@@ -26,6 +27,7 @@ target_include_directories(arm_handler_node PUBLIC
 target_link_libraries(arm_handler_node
     rclcpp::rclcpp
     std_msgs::std_msgs
+    std_srvs::std_srvs
     geometry_msgs::geometry_msgs
     picar_arm_safety_interface::picar_arm_safety_interface
 )

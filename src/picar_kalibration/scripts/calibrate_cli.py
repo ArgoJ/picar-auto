@@ -38,8 +38,8 @@ class CalibrateCli(Node):
             self.cli_save.wait_for_service(timeout_sec=timeout)
         )
 
-    def check_motor_driver(self, timeout=1.5) -> bool:
-        """Prueft, ob der Hardware-Treiber motor_node auf das Servo-Topic lauscht."""
+    def check_servo_driver(self, timeout=1.5) -> bool:
+        """Prueft, ob der Hardware-Treiber servo_node auf das Servo-Topic lauscht."""
         start = time.time()
         while time.time() - start < timeout:
             if self.pub_servo.get_subscription_count() > 0:
@@ -98,12 +98,12 @@ def main():
         rclpy.shutdown()
         sys.exit(1)
 
-    has_driver = cli.check_motor_driver(timeout=1.0)
+    has_driver = cli.check_servo_driver(timeout=1.0)
     if not has_driver:
-        print("\n⚠️  ACHTUNG: Der Hardware-Treiber 'motor_node' laeuft noch nicht!")
+        print("\n⚠️  ACHTUNG: Der Hardware-Treiber 'servo_node' laeuft noch nicht!")
         print("   Auf 'picar/servo/cmd' lauscht aktuell kein Node.")
         print("   Die Servos bewegen sich erst, wenn der Treiber aktiv ist:")
-        print("   👉 Terminal: ros2 run picar_drivers motor_node")
+        print("   👉 Terminal: ros2 run picar_drivers servo_node")
         print("   👉 Oder alles zusammen: ros2 launch picar_kalibration kalibration.launch.py\n")
 
     channel = 0

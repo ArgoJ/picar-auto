@@ -40,6 +40,11 @@ LedNode::LedNode()
         "picar/led/all", 10,
         std::bind(&LedNode::onAllCmd, this, std::placeholders::_1));
 
+    // Toggle-Service fuer Controller / Trigger (schaltet picar/led/all State um)
+    srv_toggle_all_ = create_service<std_srvs::srv::Trigger>(
+        "picar/led/toggle",
+        std::bind(&LedNode::onToggleAll, this, std::placeholders::_1, std::placeholders::_2));
+
     // Status publisher
     pub_status_ = create_publisher<std_msgs::msg::Int32>("picar/led/status", 10);
 
@@ -188,6 +193,18 @@ void LedNode::onLed3Cmd(const std_msgs::msg::Bool::SharedPtr msg)
 void LedNode::onAllCmd(const std_msgs::msg::Bool::SharedPtr msg)
 {
     setAll(msg->data);
+}
+
+void LedNode::onToggleAll(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+    (void)req;
+    const bool any_on = led1_state_ || led2_state_ || led3_state_;
+    const bool next_state = !any_on;
+    setAll(next_state);
+    res->success = true;
+    res->message = next_state ? "Alle LEDs eingeschaltet." : "Alle LEDs ausgeschaltet.";
 }
 
 }  // namespace picar_drivers

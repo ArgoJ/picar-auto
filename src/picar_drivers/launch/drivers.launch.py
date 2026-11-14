@@ -56,8 +56,33 @@ def generate_launch_description():
         ),
         Node(
             package='picar_drivers',
+            executable='servo_node',
+            name='servo_node',
+            output='screen',
+            parameters=[config_file]
+        ),
+        Node(
+            package='picar_drivers',
             executable='mpu6050_node',
             name='mpu6050_node',
+            output='screen',
+            parameters=[config_file]
+        ),
+        
+        # Joystick Node
+        Node(
+            package='joy',
+            executable='joy_node',
+            name='joy_node',
+            output='screen',
+            parameters=[config_file]
+        ),
+
+        # Teleop Node
+        Node(
+            package='joy_teleop',
+            executable='joy_teleop',
+            name='joy_teleop',
             output='screen',
             parameters=[config_file]
         ),

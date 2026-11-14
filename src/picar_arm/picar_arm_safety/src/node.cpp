@@ -202,7 +202,7 @@ void PicarArmSafetyNode::setup_parameter_handlers() {
     // Stage Constraints
     parameter_handlers_["constraints.lbu"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
+            auto stages = range(0, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
             this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NBU>(p, res, "lbu", stages);
         };
     parameter_handlers_["constraints.lbx"] =
@@ -222,7 +222,7 @@ void PicarArmSafetyNode::setup_parameter_handlers() {
         };
     parameter_handlers_["constraints.ubu"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
+            auto stages = range(0, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
             this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NBU>(p, res, "ubu", stages);
         };
     parameter_handlers_["constraints.ubx"] =
@@ -661,8 +661,12 @@ int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
 
     // Suppress ROS timer logging
-    rcutils_logging_set_logger_level("rcl", RCUTILS_LOG_SEVERITY_WARN);
-    rcutils_logging_set_logger_level("rclcpp", RCUTILS_LOG_SEVERITY_WARN);
+    for (const char *logger_name : {"rcl", "rclcpp"}) {
+        if (rcutils_logging_set_logger_level(logger_name, RCUTILS_LOG_SEVERITY_WARN) != RCUTILS_RET_OK) {
+            RCLCPP_WARN(rclcpp::get_logger("picar_arm_safety"),
+                        "Failed to set '%s' log level.", logger_name);
+        }
+    }
 
     auto node = std::make_shared<picar_arm_safety::PicarArmSafetyNode>();
     RCLCPP_INFO(node->get_logger(), "Using SingleThreadedExecutor.");

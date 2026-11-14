@@ -25,11 +25,6 @@ PCA9685::PCA9685(int bus_number, int address)
 
 PCA9685::~PCA9685()
 {
-    try {
-        allOff();
-    } catch (...) {
-    }
-
     if (file_ >= 0) {
         close(file_);
         file_ = -1;
@@ -51,12 +46,21 @@ bool PCA9685::init(double frequency)
         throw std::runtime_error("PCA9685: Konnte I2C_SLAVE 0x" + std::to_string(address_) + " nicht setzen");
     }
 
-    // Auto-Increment und Sleep setzen, um Prescale konfigurieren zu koennen
-    writeRegister(REG_MODE1, 0x10);  // SLEEP = 1
-
     // Prescale berechnen: 25 MHz interner Oszillator
     double prescale_val = 25000000.0 / (4096.0 * frequency_) - 1.0;
     uint8_t prescale = static_cast<uint8_t>(std::clamp(std::round(prescale_val), 3.0, 255.0));
+
+    // Falls der Chip bereits von einer anderen Node (z. B. motor_node / servo_node)
+    // aktiv mit passender Frequenz konfiguriert wurde, aktive Kanaele nicht zuruecksetzen.
+    int mode1 = readRegister(REG_MODE1);
+    int mode2 = readRegister(REG_MODE2);
+    int cur_prescale = readRegister(REG_PRE_SCALE);
+    if (mode1 >= 0 && (mode1 & 0x10) == 0 && mode2 == 0x04 && cur_prescale == prescale) {
+        return true;
+    }
+
+    // Auto-Increment und Sleep setzen, um Prescale konfigurieren zu koennen
+    writeRegister(REG_MODE1, 0x10);  // SLEEP = 1
     writeRegister(REG_PRE_SCALE, prescale);
 
     // Aufwachen (SLEEP loeschen)
@@ -209,27 +213,6 @@ void PCA9685::setMotorThrottle(int pin_in1, int pin_in2, double throttle, bool s
         }
         setChannelFullOn(pin_in2);
     }
-}
-
-void PCA9685::allOff()
-{
-    if (file_ < 0) {
-        return;
-    }
-
-    // 1. Alle 16 Kanaele explizit auf Full-Off schalten
-    for (int i = 0; i < 16; ++i) {
-        setChannelFullOff(i);
-    }
-
-    // 2. Globales ALL_LED Register auf Full-Off (Bit 4 in OFF_H = 1)
-    writeRegister(REG_ALL_LED_ON_L,  0x00);
-    writeRegister(REG_ALL_LED_ON_H,  0x00);
-    writeRegister(REG_ALL_LED_OFF_L, 0x00);
-    writeRegister(REG_ALL_LED_OFF_H, 0x10);
-
-    // 3. Oszillator in SLEEP versetzen (MODE1 Bit 4 = 1) -> Keine PWM-Pulse mehr
-    writeRegister(REG_MODE1, 0x10);
 }
 
 }  // namespace picar_drivers

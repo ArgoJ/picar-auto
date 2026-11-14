@@ -11,6 +11,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
@@ -29,6 +30,7 @@ target_include_directories(led_node PUBLIC
 )
 target_link_libraries(led_node
     ${COMMON_DEPENDENCIES}
+    std_srvs::std_srvs
     gpiodcxx
     gpiod
 )
@@ -64,7 +66,7 @@ target_include_directories(oled_node PUBLIC
 )
 target_link_libraries(oled_node ${COMMON_DEPENDENCIES})
 
-# 5. Motor Node
+# 5. Motor Node (DC-Antriebsmotoren)
 add_executable(motor_node
     src/motor_node.cpp
     src/pca9685.cpp
@@ -78,7 +80,21 @@ target_link_libraries(motor_node
     i2c
 )
 
-# 6. MPU6050 IMU Node
+# 6. Servo Node (Lenkung, Arm, Greifer)
+add_executable(servo_node
+    src/servo_node.cpp
+    src/pca9685.cpp
+)
+target_include_directories(servo_node PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(servo_node
+    ${COMMON_DEPENDENCIES}
+    i2c
+)
+
+# 7. MPU6050 IMU Node
 add_executable(mpu6050_node
     src/mpu6050_node.cpp
     src/mpu6050_sensor.cpp
@@ -99,6 +115,7 @@ install(TARGETS
     ultrasonic_node
     oled_node
     motor_node
+    servo_node
     mpu6050_node
     DESTINATION lib/${PROJECT_NAME}
 )
@@ -114,6 +131,7 @@ if(BUILD_TESTING)
     ament_add_pytest_test(test_ultrasonic_node test/test_ultrasonic_node.py)
     ament_add_pytest_test(test_mpu6050_node test/test_mpu6050_node.py)
     ament_add_pytest_test(test_motor_node test/test_motor_node.py)
+    ament_add_pytest_test(test_servo_node test/test_servo_node.py)
 endif()
 
 ament_package()

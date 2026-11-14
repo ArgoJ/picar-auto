@@ -23,11 +23,11 @@ def generate_launch_description():
 
     config_file = LaunchConfiguration('config_file')
 
-    # 1. Hardware-Treiber fuer Motoren und Servos (I2C PCA9685)
-    motor_node = Node(
+    # 1. Hardware-Treiber fuer Servos (I2C PCA9685)
+    servo_node = Node(
         package='picar_drivers',
-        executable='motor_node',
-        name='motor_node',
+        executable='servo_node',
+        name='servo_node',
         output='screen',
         parameters=[config_file]
     )
@@ -43,6 +43,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         config_arg,
-        motor_node,
+        servo_node,
         kalibration_service
     ])

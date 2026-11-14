@@ -34,18 +34,6 @@ motor_node:
         bus_number: 1
         pca9685_address: 0x5F
         pwm_frequency: 50.0
-        steering_channel: 0
-        steering_center_angle: 90.0
-        steering_min_pulse_us: 500.0
-        steering_max_pulse_us: 2400.0
-        steering_gain: 30.0
-        invert_steering: false
-
-        # 3-faches Array fuer alle 16 Kanaele (CH0 bis CH15):
-        # CH0 = Lenkung, CH1 = Basis, CH2 = Schulter, CH3 = Ellbogen, CH4 = Greifer (AD002)
-        servo_offsets: [25.0, 23.0, 4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        servo_mins:    [60.0, 10.0, 10.0, 10.0, 67.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        servo_maxs:    [120.0, 170.0, 170.0, 170.0, 130.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
 
         motor1_in1: 15
         motor1_in2: 14
@@ -55,6 +43,61 @@ motor_node:
         invert_motor2: false
         max_linear_speed: 1.0
         cmd_vel_timeout: 0.5
+
+servo_node:
+    ros__parameters:
+        bus_number: 1
+        pca9685_address: 0x5F
+        pwm_frequency: 50.0
+        servo_min_pulse_us: 500.0
+        servo_max_pulse_us: 2400.0
+
+        # Kanal-Zuordnung pro Servo (CH0 bis CH15)
+        channel_lenkung: 0
+        channel_rotation: 1
+        channel_shoulder: 2
+        channel_elbow: 3
+        channel_gripper: 4
+
+        # Startposition beim Start von servo_node aktivieren
+        initialize_on_start: true
+
+        # Ruheposition beim Beenden / Abbruch (Ctrl+C / SIGTERM)
+        move_to_defaults_on_shutdown: true
+        release_on_shutdown: true
+        shutdown_move_duration_s: 0.8
+
+        # Lenkungs-Mapping fuer cmd_vel
+        subscribe_cmd_vel: true
+        steering_center_angle: 90.0
+        steering_gain: 30.0
+        invert_steering: false
+
+        # Servo-Arrays fuer alle 16 Kanaele (CH0 bis CH15):
+        # CH0 = Lenkung, CH1 = Rotation (Basis), CH2 = Shoulder, CH3 = Elbow, CH4 = Gripper (AD002)
+        servo_offsets:  [25.0, 23.0, 4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        servo_mins:     [60.0, 10.0, 10.0, 5.0, 67.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        servo_maxs:     [120.0, 170.0, 176.0, 170.0, 130.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+        servo_defaults: [90.0, 90.0, 60.0, 30.0, 67.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0]
+
+arm_handler_node:
+    ros__parameters:
+        default_pose_deg: [90.0, 60.0, 30.0, 67.0]
+        # Kalibrierung: 90/90/90 = senkrecht hoch; CH2 > 90 nach vorne (invertiert), CH3 < 90 nach vorne
+        joint_zero_deg: [90.0, 180.0, 90.0]
+        joint_sign: [1.0, -1.0, 1.0]
+        q_min_rad: [-1.39, 0.07, -1.48]
+        q_max_rad: [1.39, 2.35, 1.39]
+        # Sicheres Zurueckfahren beim Beenden ohne Acados (PID + begrenztes u)
+        move_to_default_on_shutdown: true
+        shutdown_max_vel_rad_s: 1.0
+        shutdown_pid_kp: 4.0
+        shutdown_pid_ki: 0.1
+        shutdown_pid_kd: 0.15
+        shutdown_timeout_s: 4.0
+        twist_timeout_s: 0.25
+        twist_linear_scale: 1.0
+        twist_angular_scale: 1.0
 
 mpu6050_node:
     ros__parameters:
@@ -68,3 +111,66 @@ mpu6050_node:
         accel_range: 0
         dlpf_bandwidth: 2
 
+joy_node:
+    ros__parameters:
+        device_id: 0
+        deadzone: 0.05
+        autorepeat_rate: 20.0
+        coalesce_interval_ms: 1
+
+joy_teleop:
+    ros__parameters:
+        # -------------------------------------------------------------------------
+        # MODUS 1: FAHRZEUG (Aktiv nur bei gedrücktem L1 / LB -> Button 4)
+        # -------------------------------------------------------------------------
+        drive_picar:
+            type: topic
+            interface_type: geometry_msgs/msg/Twist
+            topic_name: /cmd_vel
+            deadman_buttons: [4]       # Taste L1 / LB gedrückt halten
+            axis_mappings:
+                linear-x:
+                    axis: 1                # Linker Stick vertikal (Vor / Zurück)
+                    scale: 0.5             # Höchstgeschwindigkeit in m/s
+                    offset: 0.0
+                angular-z:
+                    axis: 0                # Linker Stick horizontal (Lenkung)
+                    scale: 1.0             # Lenkwinkel / Drehgeschwindigkeit in rad/s
+                    offset: 0.0
+
+        # -------------------------------------------------------------------------
+        # MODUS 2: ROBOTERARM in Zylinderkoordinaten (r, phi, z) bei gedrücktem R1 / RB (Button 5)
+        # -------------------------------------------------------------------------
+        move_arm:
+            type: topic
+            interface_type: geometry_msgs/msg/TwistStamped
+            topic_name: /picar/arm/cmd_twist
+            deadman_buttons: [5]       # Taste R1 / RB gedrückt halten
+            axis_mappings:
+                twist-linear-x:
+                    axis: 4                # Rechter Stick vertikal: Radius r (Ausstrecken / Einziehen)
+                    scale: 0.15            # Radialgeschwindigkeit in m/s
+                    offset: 0.0
+                twist-angular-z:
+                    axis: 3                # Rechter Stick horizontal: Azimut phi (Basis-Rotation Links/Rechts)
+                    scale: 1.0             # Drehgeschwindigkeit in rad/s (~57.3 Grad/s)
+                    offset: 0.0
+                twist-linear-z:
+                    axis: 7                # Linkes Steuerkreuz (D-Pad) vertikal: Höhe z (Hoch / Runter)
+                    scale: 0.12            # Vertikalgeschwindigkeit in m/s
+                    offset: 0.0
+
+        # -------------------------------------------------------------------------
+        # MODUS 3: TOGGLES (Einzelne Tastendrücke ohne Deadman-Pflicht)
+        # -------------------------------------------------------------------------
+        gripper_toggle:
+            type: service
+            interface_type: std_srvs/srv/Trigger
+            service_name: /gripper/toggle
+            buttons: [0]               # BtnA (Taste 0): Greifer Auf <-> Zu umschalten
+
+        led_toggle:
+            type: service
+            interface_type: std_srvs/srv/Trigger
+            service_name: /picar/led/toggle
+            buttons: [2]               # BtnX (Taste 2; falls auf Controller Dreieck/Viereck vertauscht: 3)
