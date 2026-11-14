@@ -70,14 +70,14 @@ servo_node:
         # Lenkungs-Mapping fuer cmd_vel
         subscribe_cmd_vel: true
         steering_center_angle: 90.0
-        steering_gain: 30.0
-        invert_steering: false
+        steering_gain: 40.0
+        invert_steering: true
 
         # Servo-Arrays fuer alle 16 Kanaele (CH0 bis CH15):
         # CH0 = Lenkung, CH1 = Rotation (Basis), CH2 = Shoulder, CH3 = Elbow, CH4 = Gripper (AD002)
-        servo_offsets:  [25.0, 23.0, 4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        servo_mins:     [60.0, 10.0, 10.0, 5.0, 67.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        servo_maxs:     [120.0, 170.0, 176.0, 170.0, 130.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+        servo_offsets:  [27.0, 23.0, 4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        servo_mins:     [50.0, 10.0, 10.0, 5.0, 67.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        servo_maxs:     [130.0, 170.0, 176.0, 170.0, 130.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
         servo_defaults: [90.0, 90.0, 60.0, 30.0, 67.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0, 90.0]
 
 arm_handler_node:
@@ -131,7 +131,7 @@ joy_teleop:
             axis_mappings:
                 linear-x:
                     axis: 1                # Linker Stick vertikal (Vor / Zurück)
-                    scale: 0.5             # Höchstgeschwindigkeit in m/s
+                    scale: 1.0             # Höchstgeschwindigkeit in m/s (100% von max_linear_speed)
                     offset: 0.0
                 angular-z:
                     axis: 0                # Linker Stick horizontal (Lenkung)
