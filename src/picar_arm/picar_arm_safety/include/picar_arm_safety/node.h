@@ -2,7 +2,6 @@
 #define PICAR_ARM_SAFETY_NODE_H
 
 #include <rclcpp/rclcpp.hpp>
-#include <rcutils/logging.h>
 #include <mutex>
 #include <array>
 #include <vector>
@@ -22,7 +21,7 @@
 #include "acados/ocp_nlp/ocp_nlp_common.h"
 #include "acados_c/ocp_nlp_interface.h"
 #include "acados_c/external_function_interface.h"
-#include "acados_solver_ocp_picar_arm_safety_filter_809ed34e.h"
+#include "acados_solver_ocp_picar_arm_safety_filter_5c21b6cb.h"
 
 // Package includes
 #include "picar_arm_safety/utils.hpp"
@@ -48,7 +47,7 @@ private:
     std::unordered_map<std::string, ParamHandler> parameter_handlers_;
 
     // --- Acados Solver ---
-    ocp_picar_arm_safety_filter_809ed34e_solver_capsule *ocp_capsule_;
+    ocp_picar_arm_safety_filter_5c21b6cb_solver_capsule *ocp_capsule_;
     ocp_nlp_in* ocp_nlp_in_;
     ocp_nlp_out* ocp_nlp_out_;
     ocp_nlp_out* ocp_nlp_sens_;
@@ -59,13 +58,15 @@ private:
     // --- Data and States ---
     PicarArmSafetyNodeConfig config_;
     bool has_received_state_{false};
+    bool has_new_yref_{true};
+    bool has_new_p_{true};
     bool first_solve_{true};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NU> u0_{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NX> current_x_{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NY0> current_yref_0_{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NY> current_yref_{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NYN> current_yref_e_{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NP> current_p_{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NU> u0_{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NX> current_x_{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NY0> current_yref_0_{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NY> current_yref_{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NYN> current_yref_e_{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NP> current_p_{};
 
 public:
     PicarArmSafetyNode();
@@ -84,7 +85,7 @@ private:
 
     // --- ROS Publisher ---
     void publish_control(
-        const std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NU>& u0, 
+        const std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NU>& u0, 
         int status);
 
     // --- ROS Parameter ---
@@ -95,15 +96,6 @@ private:
     rcl_interfaces::msg::SetParametersResult on_parameter_update(
         const std::vector<rclcpp::Parameter>& params);
 
-    template <size_t N>
-    void get_and_check_array_param(
-        const std::string& param_name,
-        std::array<double, N>& destination);
-    template <size_t N>
-    void update_param_array(
-        const rclcpp::Parameter& param,
-        std::array<double, N>& destination_array,
-        rcl_interfaces::msg::SetParametersResult& result);
     template<size_t N>
     void update_constraint(
         const rclcpp::Parameter& param,
@@ -118,8 +110,8 @@ private:
         const std::vector<int>& stages);
 
     // --- Helpers ---
-    void set_period(double period_seconds);
-    void start_control_timer(double period_seconds = 0.05);
+    bool set_period(double period_seconds);
+    void start_control_timer(double period_seconds = static_cast<double>(0.05));
     bool is_running() const {
         return control_timer_ && !control_timer_->is_canceled();
     }
@@ -135,8 +127,8 @@ private:
 
     // --- Acados Setter ---
     void set_x0(double* x0);
-    void set_yref0(double* yref0);
     void set_yref(double* yref, int stage);
+    void set_yref0(double* yref0);
     void set_yrefs(double* yref);
     void set_yref_e(double* yref_e);
     void set_ocp_parameter(double* p, size_t np, int stage);

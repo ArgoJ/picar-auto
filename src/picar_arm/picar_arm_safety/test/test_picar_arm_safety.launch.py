@@ -1,4 +1,4 @@
-import re
+import math
 import os
 import rclpy
 import unittest
@@ -6,17 +6,11 @@ import launch
 import time
 import launch_testing
 import pytest
-import subprocess
-import numpy as np
 
 from typing import Union
-from unittest import result
 from launch_ros.actions import Node
 from rclpy.parameter import Parameter, parameter_value_to_python
 from rcl_interfaces.srv import GetParameters, SetParameters
-from rclpy.publisher import Publisher
-
-from picar_arm_safety_interface.msg import State, Control, References, Parameters
 
 
 class AsyncParametersClient:
@@ -24,12 +18,13 @@ class AsyncParametersClient:
     def __init__(self, node, remote_node_name):
         self.node = node
         self.remote_node_name = remote_node_name
+        node_prefix = remote_node_name if remote_node_name.startswith('/') else f'/{remote_node_name}'
         self._get_client = self.node.create_client(
             GetParameters,
-            f'/{remote_node_name}/get_parameters')
+            f'{node_prefix}/get_parameters')
         self._set_client = self.node.create_client(
             SetParameters,
-            f'/{remote_node_name}/set_parameters')
+            f'{node_prefix}/set_parameters')
 
     def wait_for_service(self, timeout_sec=1.0):
         ok1 = self._get_client.wait_for_service(timeout_sec=timeout_sec)
@@ -47,7 +42,11 @@ class AsyncParametersClient:
         for name, value in params:
             if isinstance(value, (list, tuple)):
                 value = [float(v) for v in value]
-            if isinstance(value, (int, float)):
+            elif isinstance(value, bool):
+                value = bool(value)
+            elif isinstance(value, int):
+                value = int(value)
+            elif isinstance(value, float):
                 value = float(value)
             p = Parameter(name, value=value)
             request.parameters.append(p.to_parameter_msg())
@@ -81,68 +80,139 @@ class GeneratedNodeTest(unittest.TestCase):
 
     def setUp(self):
         self.node = rclpy.create_node('generated_node_test')
-        self.param_client = AsyncParametersClient(self.node, 'picar_arm_safety_node')
+        self.param_client = AsyncParametersClient(self.node, '/picar_arm_safety_node')
 
     def tearDown(self):
         self.node.destroy_node()
 
     def test_set_constraints(self, proc_info):
-        """Test if constraints compile-time declared default parameters."""
+        """Test declared constraints parameters and boundary/negative updates."""
         param_name = "constraints.lbu"
-        expected_value = [-3, -3, -3]
+        expected_value = [float(v) for v in [-1, -1, -1]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.lbx"
-        expected_value = [-1.4, -0.8, -1.6, -3, -3, -3]
+        expected_value = [float(v) for v in [-1.4, -0.8, -1.6, -1, -1, -1]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.lh"
-        expected_value = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.lh_e"
-        expected_value = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.lsh"
-        expected_value = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.lsh_e"
-        expected_value = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.ubu"
-        expected_value = [3, 3, 3]
+        expected_value = [float(v) for v in [1, 1, 1]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.ubx"
-        expected_value = [1.4, 1.6, 1.6, 3, 3, 3]
+        expected_value = [float(v) for v in [1.4, 1.6, 1.6, 1, 1, 1]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.uh"
-        expected_value = [1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000]
+        expected_value = [float(v) for v in [1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.uh_e"
-        expected_value = [1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000]
+        expected_value = [float(v) for v in [1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.ush"
-        expected_value = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "constraints.ush_e"
-        expected_value = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
 
     def test_set_cost(self, proc_info):
-        """Test if cost compile-time declared default parameters."""
+        """Test declared cost parameters, diagonal shorthand, and invalid-length rejection."""
         # --- Weights ---
         param_name = "cost.W"
-        expected_value = [5, 5, 5, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2]
+        expected_value = [float(v) for v in [25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05]]
+        weight_dim = math.isqrt(len(expected_value))
+        diag_value = [expected_value[i * weight_dim + i] for i in range(weight_dim)]
+        self._check_parameter_set(param_name, diag_value)
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "cost.W_0"
-        expected_value = [5, 5, 5, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2]
+        expected_value = [float(v) for v in [25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05]]
+        weight_dim = math.isqrt(len(expected_value))
+        diag_value = [expected_value[i * weight_dim + i] for i in range(weight_dim)]
+        self._check_parameter_set(param_name, diag_value)
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
         param_name = "cost.W_e"
-        expected_value = [5, 5, 5]
+        expected_value = [float(v) for v in [25, 0, 0, 0, 25, 0, 0, 0, 25]]
+        weight_dim = math.isqrt(len(expected_value))
+        diag_value = [expected_value[i * weight_dim + i] for i in range(weight_dim)]
+        self._check_parameter_set(param_name, diag_value)
         self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+
+        # --- Slacks ---
+        param_name = "cost.Zl"
+        expected_value = [float(v) for v in [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+        param_name = "cost.Zl_e"
+        expected_value = [float(v) for v in [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+        param_name = "cost.Zu"
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+        param_name = "cost.Zu_e"
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+        param_name = "cost.zl"
+        expected_value = [float(v) for v in [100, 100, 100, 100, 100, 100, 100, 100, 100]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+        param_name = "cost.zl_e"
+        expected_value = [float(v) for v in [100, 100, 100, 100, 100, 100, 100, 100, 100]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+        param_name = "cost.zu"
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
+        param_name = "cost.zu_e"
+        expected_value = [float(v) for v in [0, 0, 0, 0, 0, 0, 0, 0, 0]]
+        self._check_parameter_set(param_name, expected_value)
+        self._check_parameter_set_rejected(param_name, expected_value + [0.0], unchanged_expected=expected_value)
 
     def test_set_solver_options(self, proc_info):
-        """Test if solver options compile-time declared default parameters."""
-        param_name = "ts"
-        expected_value = 0.05
-        self._check_parameter_set(param_name, expected_value)
+        """Test solver/ROS parameter updates and invalid-value rejection."""
+        default_ts = float(0.05)
+        self._check_parameter_set("ts", default_ts)
+        self._check_parameter_set("ts", default_ts * 2.0)
+        self._check_parameter_set("ts", default_ts)
+
+        for bad_ts in (0.0, -0.1, float('nan'), float('inf')):
+            self._check_parameter_set_rejected("ts", bad_ts, unchanged_expected=default_ts)
+
+        default_print_level = int(0)
+        self._check_parameter_set("solver_options.print_level", 1 if default_print_level == 0 else 0)
+        self._check_parameter_set("solver_options.print_level", default_print_level)
+
+        self._check_parameter_set("verbose", True)
+        self._check_parameter_set("verbose", False)
+
+        self._check_parameter_set_rejected("nonexistent_parameter", 1.0)
 
     def test_subscribing(self, proc_info):
         """Test if the node subscribes to all expected topics."""
@@ -184,9 +254,9 @@ class GeneratedNodeTest(unittest.TestCase):
         return False
 
     def _check_parameter_get(self, param_name: str, expected_value: Union[list[float], float]):
-        """Run a subprocess command and return its output."""
+        """Verify parameter value via ROS2 GetParameters service."""
         if not self.param_client.wait_for_service(timeout_sec=2.0):
-            self.fail(f"Parameter service for 'picar_arm_safety_node' not available.")
+            self.fail(f"Parameter service for '/picar_arm_safety_node' not available.")
 
         future = self.param_client.get_parameters([param_name])
         rclpy.spin_until_future_complete(self.node, future, timeout_sec=2.0)
@@ -207,9 +277,9 @@ class GeneratedNodeTest(unittest.TestCase):
                 f"Parameter {param_name} has the wrong value! Got {actual_value}")
 
     def _check_parameter_set(self, param_name: str, new_value: Union[list[float], float]):
-        """Run a subprocess command and return its output."""
+        """Set and verify parameter value via ROS2 SetParameters service."""
         if not self.param_client.wait_for_service(timeout_sec=2.0):
-            self.fail(f"Parameter service for 'picar_arm_safety_node' not available.")
+            self.fail(f"Parameter service for '/picar_arm_safety_node' not available.")
 
         future = self.param_client.set_parameters([(param_name, new_value)])
         rclpy.spin_until_future_complete(self.node, future, timeout_sec=3.0)
@@ -221,3 +291,23 @@ class GeneratedNodeTest(unittest.TestCase):
             self.fail(f"Failed to set parameter {param_name}: {results[0].reason if results else 'unknown'}")
 
         self._check_parameter_get(param_name, new_value)
+
+    def _check_parameter_set_rejected(self, param_name: str, invalid_value, unchanged_expected=None):
+        """Verify that an invalid parameter update is rejected without altering the parameter."""
+        if not self.param_client.wait_for_service(timeout_sec=2.0):
+            self.fail("Parameter service for '/picar_arm_safety_node' not available.")
+
+        future = self.param_client.set_parameters([(param_name, invalid_value)])
+        rclpy.spin_until_future_complete(self.node, future, timeout_sec=3.0)
+        if not future.done() or future.result() is None:
+            self.fail(f"Timeout while testing rejected parameter {param_name}")
+
+        results = future.result().results
+        self.assertTrue(results, "SetParameters returned empty results list.")
+        self.assertFalse(
+            results[0].successful,
+            f"Expected parameter '{param_name}' update with {invalid_value!r} to be rejected."
+        )
+        self.assertTrue(results[0].reason, f"Expected rejection reason for '{param_name}'.")
+        if unchanged_expected is not None:
+            self._check_parameter_get(param_name, unchanged_expected)

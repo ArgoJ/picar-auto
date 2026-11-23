@@ -59,12 +59,18 @@ target_link_libraries(ultrasonic_node
 )
 
 # 4. OLED Node
-add_executable(oled_node src/oled_node.cpp)
+add_executable(oled_node
+    src/oled_node.cpp
+    src/ssd1306_display.cpp
+)
 target_include_directories(oled_node PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(oled_node ${COMMON_DEPENDENCIES})
+target_link_libraries(oled_node
+    ${COMMON_DEPENDENCIES}
+    z
+)
 
 # 5. Motor Node (DC-Antriebsmotoren)
 add_executable(motor_node
@@ -108,7 +114,20 @@ target_link_libraries(mpu6050_node
     i2c
 )
 
-# Installation
+# 8. Battery Node (ADS7830 ADC Akkustatus)
+add_executable(battery_node
+    src/battery_node.cpp
+    src/ads7830_sensor.cpp
+)
+target_include_directories(battery_node PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(battery_node
+    ${COMMON_DEPENDENCIES}
+    i2c
+)
+
 install(TARGETS
     led_node
     buzzer_node
@@ -117,6 +136,7 @@ install(TARGETS
     motor_node
     servo_node
     mpu6050_node
+    battery_node
     DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -129,9 +149,11 @@ if(BUILD_TESTING)
     ament_add_pytest_test(test_led_node test/test_led_node.py)
     ament_add_pytest_test(test_buzzer_node test/test_buzzer_node.py)
     ament_add_pytest_test(test_ultrasonic_node test/test_ultrasonic_node.py)
+    ament_add_pytest_test(test_oled_node test/test_oled_node.py)
     ament_add_pytest_test(test_mpu6050_node test/test_mpu6050_node.py)
     ament_add_pytest_test(test_motor_node test/test_motor_node.py)
     ament_add_pytest_test(test_servo_node test/test_servo_node.py)
+    ament_add_pytest_test(test_battery_node test/test_battery_node.py)
 endif()
 
 ament_package()

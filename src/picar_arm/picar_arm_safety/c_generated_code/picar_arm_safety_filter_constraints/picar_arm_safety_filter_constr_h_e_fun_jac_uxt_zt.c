@@ -75,9 +75,9 @@ static const casadi_int casadi_s4[34] =
   1, 0, 1, 0, 1, 2, 0, 1,
   2, 0, 1, 2, 0, 1, 2, 0,
   1, 2};
-static const casadi_int casadi_s5[3] = {9, 0, 1};
+static const casadi_int casadi_s5[3] = {0, 9, 1};
 
-/* picar_arm_safety_filter_constr_h_e_fun_jac_uxt_zt:(i0[6],i1[0],i2[0],i3[7])->(o0[9],o1[6x9,22nz],o2[9x0]) */
+/* picar_arm_safety_filter_constr_h_e_fun_jac_uxt_zt:(i0[6],i1[0],i2[0],i3[7])->(o0[9],o1[6x9,22nz],o2[0x9]) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
   casadi_real a00, a01, a02, a03, a04, a05, a06, a07, a08, a09, a10, a11;
   casadi_real a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23;

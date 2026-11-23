@@ -24,21 +24,22 @@ PicarArmSafetyNode::PicarArmSafetyNode()
 
     // --- Subscriber ---
     state_sub_ = this->create_subscription<picar_arm_safety_interface::msg::State>(
-        "/arm_state", 10,
+        "arm_state", 10,
         std::bind(&PicarArmSafetyNode::state_callback, this, std::placeholders::_1));
     references_sub_ = this->create_subscription<picar_arm_safety_interface::msg::References>(
-        "/arm_reference", 10,
+        "arm_reference", 10,
         std::bind(&PicarArmSafetyNode::references_callback, this, std::placeholders::_1));
     parameters_sub_ = this->create_subscription<picar_arm_safety_interface::msg::Parameters>(
-        "/arm_params", 10,
+        "arm_params", 10,
         std::bind(&PicarArmSafetyNode::parameters_callback, this, std::placeholders::_1));
 
     // --- Publisher ---
     control_pub_ = this->create_publisher<picar_arm_safety_interface::msg::Control>(
-        "/arm_control", 10);
+        "arm_control", 10);
 
     // --- Init solver ---
     this->initialize_solver();
+    if (!ocp_capsule_) return;
     this->apply_all_parameters_to_solver();
     this->start_control_timer(config_.ts);
 }
@@ -46,13 +47,13 @@ PicarArmSafetyNode::PicarArmSafetyNode()
 PicarArmSafetyNode::~PicarArmSafetyNode() {
     RCLCPP_INFO(this->get_logger(), "Shutting down and freeing Acados solver memory.");
     if (ocp_capsule_) {
-        int status = ocp_picar_arm_safety_filter_809ed34e_acados_free(ocp_capsule_);
+        int status = ocp_picar_arm_safety_filter_5c21b6cb_acados_free(ocp_capsule_);
         if (status) {
-            RCLCPP_ERROR(this->get_logger(), "ocp_picar_arm_safety_filter_809ed34e_acados_free() returned status %d.", status);
+            RCLCPP_ERROR(this->get_logger(), "ocp_picar_arm_safety_filter_5c21b6cb_acados_free() returned status %d.", status);
         }
-        status = ocp_picar_arm_safety_filter_809ed34e_acados_free_capsule(ocp_capsule_);
+        status = ocp_picar_arm_safety_filter_5c21b6cb_acados_free_capsule(ocp_capsule_);
         if (status) {
-            RCLCPP_ERROR(this->get_logger(), "ocp_picar_arm_safety_filter_809ed34e_acados_free_capsule() returned status %d.", status);
+            RCLCPP_ERROR(this->get_logger(), "ocp_picar_arm_safety_filter_5c21b6cb_acados_free_capsule() returned status %d.", status);
         }
     }
 }
@@ -60,49 +61,70 @@ PicarArmSafetyNode::~PicarArmSafetyNode() {
 
 // --- Core Methods ---
 void PicarArmSafetyNode::initialize_solver() {
-    ocp_capsule_ = ocp_picar_arm_safety_filter_809ed34e_acados_create_capsule();
-    int status = ocp_picar_arm_safety_filter_809ed34e_acados_create(ocp_capsule_);
+    ocp_capsule_ = ocp_picar_arm_safety_filter_5c21b6cb_acados_create_capsule();
+    int status = ocp_picar_arm_safety_filter_5c21b6cb_acados_create(ocp_capsule_);
     if (status) {
-        RCLCPP_FATAL(this->get_logger(), "ocp_picar_arm_safety_filter_809ed34eacados_create() failed with status %d.", status);
+        RCLCPP_FATAL(this->get_logger(), "ocp_picar_arm_safety_filter_5c21b6cb_acados_create() failed with status %d.", status);
+        ocp_picar_arm_safety_filter_5c21b6cb_acados_free_capsule(ocp_capsule_);
+        ocp_capsule_ = nullptr;
         rclcpp::shutdown();
+        return;
     }
 
-    ocp_nlp_in_ = ocp_picar_arm_safety_filter_809ed34e_acados_get_nlp_in(ocp_capsule_);
-    ocp_nlp_out_ = ocp_picar_arm_safety_filter_809ed34e_acados_get_nlp_out(ocp_capsule_);
-    ocp_nlp_sens_ = ocp_picar_arm_safety_filter_809ed34e_acados_get_sens_out(ocp_capsule_);
-    ocp_nlp_config_ = ocp_picar_arm_safety_filter_809ed34e_acados_get_nlp_config(ocp_capsule_);
-    ocp_nlp_opts_ = ocp_picar_arm_safety_filter_809ed34e_acados_get_nlp_opts(ocp_capsule_);
-    ocp_nlp_dims_ = ocp_picar_arm_safety_filter_809ed34e_acados_get_nlp_dims(ocp_capsule_);
+    ocp_nlp_in_ = ocp_picar_arm_safety_filter_5c21b6cb_acados_get_nlp_in(ocp_capsule_);
+    ocp_nlp_out_ = ocp_picar_arm_safety_filter_5c21b6cb_acados_get_nlp_out(ocp_capsule_);
+    ocp_nlp_sens_ = ocp_picar_arm_safety_filter_5c21b6cb_acados_get_sens_out(ocp_capsule_);
+    ocp_nlp_config_ = ocp_picar_arm_safety_filter_5c21b6cb_acados_get_nlp_config(ocp_capsule_);
+    ocp_nlp_opts_ = ocp_picar_arm_safety_filter_5c21b6cb_acados_get_nlp_opts(ocp_capsule_);
+    ocp_nlp_dims_ = ocp_picar_arm_safety_filter_5c21b6cb_acados_get_nlp_dims(ocp_capsule_);
 
     RCLCPP_INFO(this->get_logger(), "acados solver initialized successfully.");
 }
 
 void PicarArmSafetyNode::control_loop() {
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NX> x0{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NY0> yref0{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NY> yref{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NYN> yrefN{};
-    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NP> p{};
-
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NX> x0{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NY0> yref0{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NY> yref{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NYN> yrefN{};
+    std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NP> p{};
+    bool wait_for_state = false;
+    bool update_yref = false;
+    bool update_p = false;
     {
         if (!has_received_state_) {
-            RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Waiting for first state message...");
-            return;
+            wait_for_state = true;
+        } else {
+            x0 = current_x_;
+            update_yref = has_new_yref_;
+            if (update_yref) {
+                yref0 = current_yref_0_;
+                yref = current_yref_;
+                yrefN = current_yref_e_;
+                has_new_yref_ = false;
+            }
+            update_p = has_new_p_;
+            if (update_p) {
+                p = current_p_;
+                has_new_p_ = false;
+            }
         }
-        x0 = current_x_;
-        yref0 = current_yref_0_;
-        yref = current_yref_;
-        yrefN = current_yref_e_;
-        p = current_p_;
+    }
+    if (wait_for_state) {
+        RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Waiting for first state message...");
+        return;
     }
 
     {
         // Update solver
         this->set_x0(x0.data());
-        this->set_yref0(yref0.data());
-        this->set_yrefs(yref.data());
-        this->set_yref_e(yrefN.data());
-        this->set_ocp_parameters(p.data(), p.size());
+        if (update_yref) {
+            this->set_yref0(yref0.data());
+            this->set_yrefs(yref.data());
+            this->set_yref_e(yrefN.data());
+        }
+        if (update_p) {
+            this->set_ocp_parameters(p.data(), p.size());
+        }
 
         // Solve OCP
         int status;
@@ -128,11 +150,12 @@ void PicarArmSafetyNode::solver_status_behaviour(int status) {
     }
     else {
         first_solve_ = true;
-        if (config_.verbose) {
-            ocp_picar_arm_safety_filter_809ed34e_acados_print_stats(ocp_capsule_);
+        bool verbose = config_.verbose;
+        if (verbose) {
+            ocp_picar_arm_safety_filter_5c21b6cb_acados_print_stats(ocp_capsule_);
         }
-        RCLCPP_INFO(this->get_logger(), "Resetting acados solver memory...");
-        ocp_picar_arm_safety_filter_809ed34e_acados_reset(ocp_capsule_, 1, 0, 0, 0);
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Resetting acados solver memory...");
+        ocp_picar_arm_safety_filter_5c21b6cb_acados_reset(ocp_capsule_, 1, 0, 0, 0);
     }
 }
 
@@ -145,9 +168,12 @@ void PicarArmSafetyNode::state_callback(const picar_arm_safety_interface::msg::S
             "State callback received NaN/Inf in 'x'. Ignoring message.");
         return;
     }
-    current_x_ = msg->x;
-    has_received_state_ = true;
-    RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "State callback: x=" << current_x_);
+
+    {
+        current_x_ = msg->x;
+        has_received_state_ = true;
+    }
+    RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "State callback: x=" << msg->x);
 }
 
 void PicarArmSafetyNode::references_callback(const picar_arm_safety_interface::msg::References::SharedPtr msg) {
@@ -168,7 +194,11 @@ void PicarArmSafetyNode::references_callback(const picar_arm_safety_interface::m
             this->get_logger(), *this->get_clock(), 2000,
             "Reference callback received NaN/Inf in 'yref_e'. Ignoring message.");
         return;
-    } current_yref_0_ = msg->yref_0;   current_yref_  = msg->yref;     current_yref_e_ = msg->yref_e;  RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Refs callback: yref_0=" << current_yref_0_);   RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Refs callback: yref="   << current_yref_);    RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Refs callback: yref_e=" << current_yref_e_);  
+    }
+
+    { current_yref_0_ = msg->yref_0;   current_yref_  = msg->yref;     current_yref_e_ = msg->yref_e; 
+        has_new_yref_ = true;
+    } RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Refs callback: yref_0=" << msg->yref_0);   RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Refs callback: yref="   << msg->yref);    RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Refs callback: yref_e=" << msg->yref_e);  
 }
 
 void PicarArmSafetyNode::parameters_callback(const picar_arm_safety_interface::msg::Parameters::SharedPtr msg) {
@@ -178,14 +208,18 @@ void PicarArmSafetyNode::parameters_callback(const picar_arm_safety_interface::m
             "Parameter callback received NaN/Inf in 'p'. Ignoring message.");
         return;
     }
-    current_p_ = msg->p;
-    RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Params callback: p=" << current_p_);
+
+    {
+        current_p_ = msg->p;
+        has_new_p_ = true;
+    }
+    RCLCPP_DEBUG_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Params callback: p=" << msg->p);
 }
 
 
 // --- ROS Publisher ---
 void PicarArmSafetyNode::publish_control(
-        const std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NU>& u0, 
+        const std::array<double, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NU>& u0, 
         int status
 ) {
     auto control = std::make_unique<picar_arm_safety_interface::msg::Control>();
@@ -202,115 +236,115 @@ void PicarArmSafetyNode::setup_parameter_handlers() {
     // Stage Constraints
     parameter_handlers_["constraints.lbu"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(0, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NBU>(p, res, "lbu", stages);
+            auto stages = range(0, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NBU>(p, res, "lbu", stages);
         };
     parameter_handlers_["constraints.lbx"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NBX>(p, res, "lbx", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NBX>(p, res, "lbx", stages);
         };
     parameter_handlers_["constraints.lh"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NH>(p, res, "lh", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NH>(p, res, "lh", stages);
         };
     parameter_handlers_["constraints.lsh"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSH>(p, res, "lsh", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSH>(p, res, "lsh", stages);
         };
     parameter_handlers_["constraints.ubu"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(0, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NBU>(p, res, "ubu", stages);
+            auto stages = range(0, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NBU>(p, res, "ubu", stages);
         };
     parameter_handlers_["constraints.ubx"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NBX>(p, res, "ubx", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NBX>(p, res, "ubx", stages);
         };
     parameter_handlers_["constraints.uh"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NH>(p, res, "uh", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NH>(p, res, "uh", stages);
         };
     parameter_handlers_["constraints.ush"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSH>(p, res, "ush", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSH>(p, res, "ush", stages);
         };
 
     // Terminal Constraints
     parameter_handlers_["constraints.lh_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NHN>(p, res, "lh", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NHN>(p, res, "lh", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
     parameter_handlers_["constraints.lsh_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSHN>(p, res, "lsh", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSHN>(p, res, "lsh", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
     parameter_handlers_["constraints.uh_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NHN>(p, res, "uh", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NHN>(p, res, "uh", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
     parameter_handlers_["constraints.ush_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSHN>(p, res, "ush", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_constraint<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSHN>(p, res, "ush", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
 
     // Weights
     parameter_handlers_["cost.W_0"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NY0>(p, res, "W", std::vector<int>{0});
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NY0>(p, res, "W", std::vector<int>{0});
         };
     parameter_handlers_["cost.W"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NY>(p, res, "W", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NY>(p, res, "W", stages);
         };
     parameter_handlers_["cost.W_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NYN>(p, res, "W", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NYN>(p, res, "W", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
     // Stage Slacks
     parameter_handlers_["cost.Zl"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NS>(p, res, "Zl", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NS>(p, res, "Zl", stages);
         };
     parameter_handlers_["cost.Zu"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NS>(p, res, "Zu", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NS>(p, res, "Zu", stages);
         };
     parameter_handlers_["cost.zl"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NS>(p, res, "zl", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NS>(p, res, "zl", stages);
         };
     parameter_handlers_["cost.zu"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NS>(p, res, "zu", stages);
+            auto stages = range(1, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NS>(p, res, "zu", stages);
         };
 
     // Terminal Slacks
     parameter_handlers_["cost.Zl_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSN>(p, res, "Zl", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSN>(p, res, "Zl", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
     parameter_handlers_["cost.Zu_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSN>(p, res, "Zu", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSN>(p, res, "Zu", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
     parameter_handlers_["cost.zl_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSN>(p, res, "zl", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSN>(p, res, "zl", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
     parameter_handlers_["cost.zu_e"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_NSN>(p, res, "zu", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N});
+            this->update_cost<OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_NSN>(p, res, "zu", std::vector<int>{OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N});
         };
 
     // Solver Options
@@ -323,9 +357,15 @@ void PicarArmSafetyNode::setup_parameter_handlers() {
     // Ros Configs
     parameter_handlers_["ts"] =
         [this](const rclcpp::Parameter& p, rcl_interfaces::msg::SetParametersResult& res) {
-            this->set_period(p.as_double());
+            const double new_ts = p.as_double();
+            const bool unchanged = (new_ts == this->config_.ts);
+            if (!this->set_period(new_ts)) {
+                res.reason = "Control period 'ts' must be positive and finite.";
+                res.successful = false;
+                return;
+            }
             // Restart timer with the new period
-            if (!this->is_running()) {
+            if (unchanged || !this->is_running()) {
                 // Assumes that the node is not yet ready and that the timer will be started later
                 return;
             }
@@ -344,23 +384,23 @@ void PicarArmSafetyNode::setup_parameter_handlers() {
 
 void PicarArmSafetyNode::declare_parameters() {
     // Constraints
-    this->declare_parameter("constraints.lbu", std::vector<double>{-3, -3, -3});
-    this->declare_parameter("constraints.lbx", std::vector<double>{-1.4, -0.8, -1.6, -3, -3, -3});
+    this->declare_parameter("constraints.lbu", std::vector<double>{-1, -1, -1});
+    this->declare_parameter("constraints.lbx", std::vector<double>{-1.4, -0.8, -1.6, -1, -1, -1});
     this->declare_parameter("constraints.lh", std::vector<double>{0, 0, 0, 0, 0, 0, 0, 0, 0});
     this->declare_parameter("constraints.lh_e", std::vector<double>{0, 0, 0, 0, 0, 0, 0, 0, 0});
     this->declare_parameter("constraints.lsh", std::vector<double>{0, 0, 0, 0, 0, 0, 0, 0, 0});
     this->declare_parameter("constraints.lsh_e", std::vector<double>{0, 0, 0, 0, 0, 0, 0, 0, 0});
-    this->declare_parameter("constraints.ubu", std::vector<double>{3, 3, 3});
-    this->declare_parameter("constraints.ubx", std::vector<double>{1.4, 1.6, 1.6, 3, 3, 3});
+    this->declare_parameter("constraints.ubu", std::vector<double>{1, 1, 1});
+    this->declare_parameter("constraints.ubx", std::vector<double>{1.4, 1.6, 1.6, 1, 1, 1});
     this->declare_parameter("constraints.uh", std::vector<double>{1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000});
     this->declare_parameter("constraints.uh_e", std::vector<double>{1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000, 1000000000});
     this->declare_parameter("constraints.ush", std::vector<double>{0, 0, 0, 0, 0, 0, 0, 0, 0});
     this->declare_parameter("constraints.ush_e", std::vector<double>{0, 0, 0, 0, 0, 0, 0, 0, 0});
 
     // Weights
-    this->declare_parameter("cost.W", std::vector<double>{5, 5, 5, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2});
-    this->declare_parameter("cost.W_0", std::vector<double>{5, 5, 5, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2});
-    this->declare_parameter("cost.W_e", std::vector<double>{5, 5, 5});
+    this->declare_parameter("cost.W", std::vector<double>{25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05});
+    this->declare_parameter("cost.W_0", std::vector<double>{25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05});
+    this->declare_parameter("cost.W_e", std::vector<double>{25, 0, 0, 0, 25, 0, 0, 0, 25});
 
     // Slacks
     this->declare_parameter("cost.Zl", std::vector<double>{1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000});
@@ -376,12 +416,14 @@ void PicarArmSafetyNode::declare_parameters() {
     this->declare_parameter("solver_options.print_level", 0);
 
     // Ros Configs
-    this->declare_parameter("ts", 0.05);
+    this->declare_parameter("ts", static_cast<double>(0.05));
     this->declare_parameter("verbose", false);
 }
 
 void PicarArmSafetyNode::load_parameters() {
-    this->get_parameter("ts", config_.ts);
+    double ts = this->config_.ts;
+    this->get_parameter("ts", ts);
+    this->set_period(ts);
     this->get_parameter("verbose", config_.verbose);
 }
 
@@ -416,35 +458,19 @@ rcl_interfaces::msg::SetParametersResult PicarArmSafetyNode::on_parameter_update
     result.successful = true;
 
     for (const auto& param : params) {
-        auto& param_name = param.get_name();
+        const auto& param_name = param.get_name();
+        const auto it = parameter_handlers_.find(param_name);
 
-        if (parameter_handlers_.count(param_name)) {
-            parameter_handlers_.at(param_name)(param, result);
+        if (it != parameter_handlers_.end()) {
+            it->second(param, result);
             if (!result.successful) break;
         } else {
             result.reason = "Update for unknown parameter '" + param_name + "' received.";
             result.successful = false;
+            break;
         }
     }
     return result;
-}
-
-template <size_t N>
-void PicarArmSafetyNode::update_param_array(
-    const rclcpp::Parameter& param,
-    std::array<double, N>& destination_array,
-    rcl_interfaces::msg::SetParametersResult& result
-) {
-    auto values = param.as_double_array();
-
-    if (values.size() != N) {
-        result.successful = false;
-        result.reason = "Parameter '" + param.get_name() + "' has size " +
-                        std::to_string(values.size()) + ", but expected is " + std::to_string(N) + ".";
-        return;
-    }
-
-    std::copy_n(values.begin(), N, destination_array.begin());
 }
 
 template<size_t N>
@@ -454,7 +480,7 @@ void PicarArmSafetyNode::update_constraint(
     const char* field,
     const std::vector<int>& stages
 ) {
-    auto values = param.as_double_array();
+    const auto& values = param.as_double_array();
 
     if (values.size() != N) {
         result.successful = false;
@@ -472,7 +498,7 @@ void PicarArmSafetyNode::update_constraint(
 
             if (status != ACADOS_SUCCESS) {
                 result.successful = false;
-                result.reason = "Acados solver failed to set cost field '" + std::string(field) +
+                result.reason = "Acados solver failed to set constraint field '" + std::string(field) +
                             "' for stage " + std::to_string(stage) + " (error code: " + std::to_string(status) + ")";
                 return;
             }
@@ -487,26 +513,38 @@ void PicarArmSafetyNode::update_cost(
     const char* field,
     const std::vector<int>& stages
 ) {
-    const auto values = param.as_double_array();
+    const auto& values = param.as_double_array();
+    const bool is_weight = std::strcmp(field, "W") == 0;
 
-    if (values.size() != N) {
-        result.successful = false;
-        result.reason = "Cost '" + std::string(param.get_name()) + "' has size " +
-                      std::to_string(values.size()) + ", but expected is " + std::to_string(N) + ".";
-        return;
-    }
-
-    std::array<double, N> vec;
+    std::array<double, N> vec{};
     std::array<double, N * N> mat{};
-    std::copy_n(values.begin(), N, vec.begin());
     double* data_ptr = nullptr;
 
-    const bool is_weight = std::strcmp(field, "W") == 0;
     if (is_weight) {
-        mat = diag_from_vec(vec);
+        if (values.size() == N) {
+            std::copy_n(values.begin(), N, vec.begin());
+            mat = diag_from_vec(vec);
+        } else if (values.size() == N * N) {
+            std::array<double, N * N> row_major{};
+            std::copy_n(values.begin(), N * N, row_major.begin());
+            mat = row_major_to_col_major<double, N>(row_major);
+        } else {
+            result.successful = false;
+            result.reason = "Cost '" + std::string(param.get_name()) + "' has size " +
+                          std::to_string(values.size()) + ", but expected is " + std::to_string(N) +
+                          " (diagonal) or " + std::to_string(N * N) + " (full matrix).";
+            return;
+        }
         data_ptr = mat.data();
         RCLCPP_INFO_STREAM(this->get_logger(), "update cost field '" << field << "' mat(flat) = " << mat);
     } else {
+        if (values.size() != N) {
+            result.successful = false;
+            result.reason = "Cost '" + std::string(param.get_name()) + "' has size " +
+                          std::to_string(values.size()) + ", but expected is " + std::to_string(N) + ".";
+            return;
+        }
+        std::copy_n(values.begin(), N, vec.begin());
         data_ptr = vec.data();
         RCLCPP_INFO_STREAM(this->get_logger(), "update cost field '" << field << "' values = " << vec);
     }
@@ -525,35 +563,42 @@ void PicarArmSafetyNode::update_cost(
 }
 
 // --- Helpers ---
-void PicarArmSafetyNode::set_period(double period_seconds) {
+bool PicarArmSafetyNode::set_period(double period_seconds) {
+    if (!std::isfinite(period_seconds) || period_seconds <= 0.0) {
+        RCLCPP_WARN(this->get_logger(),
+            "Control period must be positive and finite.");
+        return false;
+    }
     if (config_.ts == period_seconds) {
         // Nothing to do
-        return;
+        return true;
     }
     RCLCPP_INFO_STREAM(
         this->get_logger(), "update period 'Ts' = " << period_seconds << "s");
     this->config_.ts = period_seconds;
-    // Check period validity
-    if (this->config_.ts <= 0.0) {
-        this->config_.ts = 0.05;
-        RCLCPP_WARN(this->get_logger(),
-            "Control period must be positive, defaulting to 0.05s, the first time step of the OCP.");
-    }
+    return true;
 }
 
 void PicarArmSafetyNode::start_control_timer(double period_seconds) {
-    this->set_period(period_seconds);
+    if (!this->set_period(period_seconds)) {
+        RCLCPP_ERROR(this->get_logger(),
+            "Cannot start control timer with invalid period.");
+        return;
+    }
     // if timer already exists, restart with new period
     if (this->is_running()) {
         RCLCPP_WARN(this->get_logger(), "Control timer already running, restarting...");
         control_timer_->cancel();
     }
-    RCLCPP_INFO_STREAM(this->get_logger(), "Starting control loop with period " << period_seconds << "s.");
+    RCLCPP_INFO_STREAM(this->get_logger(), "Starting control loop with period " << this->config_.ts << "s.");
     // create timer
     auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double>(period_seconds));
-    control_timer_ = this->create_wall_timer(
-        period,
+        std::chrono::duration<double>(this->config_.ts));
+    control_timer_ = rclcpp::create_timer(
+        this->get_node_base_interface(),
+        this->get_node_timers_interface(),
+        this->get_clock(),
+        rclcpp::Duration(period),
         std::bind(&PicarArmSafetyNode::control_loop, this));
 }
 
@@ -562,10 +607,10 @@ void PicarArmSafetyNode::start_control_timer(double period_seconds) {
 int PicarArmSafetyNode::prepare_rti_solve() {
     int phase = PREPARATION;
     ocp_nlp_sqp_rti_opts_set(ocp_nlp_config_, ocp_nlp_opts_, "rti_phase", &phase);
-    int status = ocp_picar_arm_safety_filter_809ed34e_acados_solve(ocp_capsule_);
+    int status = ocp_picar_arm_safety_filter_5c21b6cb_acados_solve(ocp_capsule_);
     if (status != ACADOS_SUCCESS && status != ACADOS_READY) {
         first_solve_ = true;
-        RCLCPP_ERROR(this->get_logger(), "Solver failed at preparation phase: %d", status);
+        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Solver failed at preparation phase: %d", status);
     }
     return status;
 }
@@ -573,18 +618,18 @@ int PicarArmSafetyNode::prepare_rti_solve() {
 int PicarArmSafetyNode::feedback_rti_solve() {
     int phase = FEEDBACK;
     ocp_nlp_sqp_rti_opts_set(ocp_nlp_config_, ocp_nlp_opts_, "rti_phase", &phase);
-    int status = ocp_picar_arm_safety_filter_809ed34e_acados_solve(ocp_capsule_);
+    int status = ocp_picar_arm_safety_filter_5c21b6cb_acados_solve(ocp_capsule_);
     if (status != ACADOS_SUCCESS) {
-        RCLCPP_ERROR(this->get_logger(), "Solver failed at feedback phase: %d", status);
+        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Solver failed at feedback phase: %d", status);
     }
     return status;
 }
 int PicarArmSafetyNode::ocp_solve() {
     int phase = PREPARATION_AND_FEEDBACK;
     ocp_nlp_sqp_rti_opts_set(ocp_nlp_config_, ocp_nlp_opts_, "rti_phase", &phase);
-    int status = ocp_picar_arm_safety_filter_809ed34e_acados_solve(ocp_capsule_);
+    int status = ocp_picar_arm_safety_filter_5c21b6cb_acados_solve(ocp_capsule_);
     if (status != ACADOS_SUCCESS) {
-        RCLCPP_ERROR(this->get_logger(), "Solver failed with status: %d", status);
+        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Solver failed with status: %d", status);
     }
     return status;
 }
@@ -617,28 +662,28 @@ void PicarArmSafetyNode::set_yref0(double* yref0) {
 }
 
 void PicarArmSafetyNode::set_yrefs(double* yref) {
-    for (int i = 1; i < OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N; i++) {
+    for (int i = 1; i < OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N; i++) {
         this->set_yref(yref, i);
     }
 }
 
 void PicarArmSafetyNode::set_yref_e(double* yrefN) {
-    this->set_yref(yrefN, OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N);
+    this->set_yref(yrefN, OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N);
 }
 
 void PicarArmSafetyNode::set_ocp_parameter(double* p, size_t np, int stage) {
-    int status = ocp_picar_arm_safety_filter_809ed34e_acados_update_params(ocp_capsule_, stage, p, np);
+    int status = ocp_picar_arm_safety_filter_5c21b6cb_acados_update_params(ocp_capsule_, stage, p, np);
     check_acados_status("set_ocp_parameter (p)", stage, status);
 }
 
 void PicarArmSafetyNode::set_ocp_parameters(double* p, size_t np) {
-    for (int i = 0; i <= OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N; i++) {
+    for (int i = 0; i <= OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N; i++) {
         this->set_ocp_parameter(p, np, i);
     }
 }
 
 void PicarArmSafetyNode::warmstart_solver_states(double *x0) {
-    for (int i = 1; i <= OCP_PICAR_ARM_SAFETY_FILTER_809ED34E_N; ++i) {
+    for (int i = 1; i <= OCP_PICAR_ARM_SAFETY_FILTER_5C21B6CB_N; ++i) {
         ocp_nlp_out_set(ocp_nlp_config_, ocp_nlp_dims_, ocp_nlp_out_, ocp_nlp_in_, i, "x", x0);
     }
 }
@@ -654,23 +699,3 @@ bool PicarArmSafetyNode::check_acados_status(const char* field, int stage, int s
 }
 
 } // namespace picar_arm_safety
-
-
-// --- Main ---
-int main(int argc, char **argv) {
-    rclcpp::init(argc, argv);
-
-    // Suppress ROS timer logging
-    for (const char *logger_name : {"rcl", "rclcpp"}) {
-        if (rcutils_logging_set_logger_level(logger_name, RCUTILS_LOG_SEVERITY_WARN) != RCUTILS_RET_OK) {
-            RCLCPP_WARN(rclcpp::get_logger("picar_arm_safety"),
-                        "Failed to set '%s' log level.", logger_name);
-        }
-    }
-
-    auto node = std::make_shared<picar_arm_safety::PicarArmSafetyNode>();
-    RCLCPP_INFO(node->get_logger(), "Using SingleThreadedExecutor.");
-    rclcpp::spin(node);
-    rclcpp::shutdown();
-    return 0;
-}

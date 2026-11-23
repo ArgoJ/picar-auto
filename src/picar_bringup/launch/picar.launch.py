@@ -51,7 +51,13 @@ def generate_launch_description():
     launch_drivers_arg = DeclareLaunchArgument(
         'launch_drivers',
         default_value='true',
-        description='Startet picar_drivers (inkl. motor_node, servo_node, Sensoren & joy/teleop)'
+        description='Startet picar_drivers (inkl. motor_node, servo_node, Sensoren, camera_ros & joy/teleop)'
+    )
+
+    launch_camera_arg = DeclareLaunchArgument(
+        'launch_camera',
+        default_value='true',
+        description='Startet die Pi-Kamera (camera_ros) innerhalb von picar_drivers'
     )
 
     launch_arm_arg = DeclareLaunchArgument(
@@ -66,13 +72,14 @@ def generate_launch_description():
         description='Optional: Startet zusaetzlich kalibration_service_node'
     )
 
-    # 1. Alle PiCar Hardware-Treiber & Controller (inkl. motor_node & servo_node)
+    # 1. Alle PiCar Hardware-Treiber & Controller (inkl. motor_node, servo_node & camera_ros)
     drivers_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(drivers_share, 'launch', 'drivers.launch.py')
         ),
         launch_arguments={
             'config_file': LaunchConfiguration('config_file'),
+            'launch_camera': LaunchConfiguration('launch_camera'),
         }.items(),
         condition=IfCondition(LaunchConfiguration('launch_drivers')),
     )
@@ -111,6 +118,7 @@ def generate_launch_description():
         safety_config_arg,
         log_level_arg,
         launch_drivers_arg,
+        launch_camera_arg,
         launch_arm_arg,
         launch_kalibration_arg,
         drivers_launch,

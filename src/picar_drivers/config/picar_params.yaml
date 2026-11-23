@@ -28,6 +28,10 @@ oled_node:
     ros__parameters:
         bus_number: 1
         i2c_address: 0x3C
+        fps: 25.0
+        default_mode: "eyes"
+        text_timeout_s: 0.0
+        font_path: "/usr/share/consolefonts/Lat15-VGA8.psf.gz"
 
 motor_node:
     ros__parameters:
@@ -110,6 +114,30 @@ mpu6050_node:
         gyro_range: 0
         accel_range: 0
         dlpf_bandwidth: 2
+
+battery_node:
+    ros__parameters:
+        bus_number: 1
+        device_address: 0x48
+        adc_channel: 0
+        rate_hz: 2.0
+        frame_id: "battery_link"
+        adc_ref_voltage: 5.0
+        r_top: 3000.0
+        r_bottom: 1000.0
+        full_voltage: 8.4
+        empty_voltage: 6.75
+        low_battery_percentage: 20.0
+
+camera:
+    ros__parameters:
+        camera: 0
+        role: "video"
+        width: 768
+        height: 432
+        format: "BGR888"
+        frame_id: "camera_optical_frame"
+        AfMode: 2
 
 joy_node:
     ros__parameters:

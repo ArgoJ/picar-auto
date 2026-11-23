@@ -4,6 +4,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.27)
     cmake_policy(SET CMP0148 OLD)
 endif()
 
+set(ACADOS_WARN_FLAGS)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(ACADOS_WARN_FLAGS -Wall -Wextra -Wpedantic)
+endif()
+
 # --- ROS DEPENDENCIES ---
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -15,17 +20,14 @@ set(ACADOS_INCLUDE_PATH /home/pirob/acados/include)
 set(ACADOS_LIB_DIR /home/pirob/acados/lib)
 set(ACADOS_GENERATED_CODE_DIR /home/pirob/ros2_ws/src/picar_arm/picar_arm_safety/c_generated_code)
 
-# --- EXECUTABLE ---
-add_executable(picar_arm_safety_node
+# --- NODE LIBRARY ---
+add_library(picar_arm_safety_node_lib STATIC
     src/node.cpp
 )
 
 # --- TARGET CONFIGURATION ---
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    target_compile_options(picar_arm_safety_node PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-target_include_directories(picar_arm_safety_node PUBLIC
+target_compile_options(picar_arm_safety_node_lib PRIVATE ${ACADOS_WARN_FLAGS})
+target_include_directories(picar_arm_safety_node_lib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
     ${ACADOS_GENERATED_CODE_DIR}
@@ -34,9 +36,8 @@ target_include_directories(picar_arm_safety_node PUBLIC
     ${ACADOS_INCLUDE_PATH}/blasfeo/include
     ${ACADOS_INCLUDE_PATH}/hpipm/include
 )
-
-target_link_libraries(picar_arm_safety_node 
-    ${ACADOS_GENERATED_CODE_DIR}/libacados_ocp_solver_ocp_picar_arm_safety_filter_809ed34e.so
+target_link_libraries(picar_arm_safety_node_lib
+    ${ACADOS_GENERATED_CODE_DIR}/libacados_ocp_solver_ocp_picar_arm_safety_filter_5c21b6cb.so
     ${ACADOS_LIB_DIR}/libacados.so
     ${ACADOS_LIB_DIR}/libblasfeo.so
     ${ACADOS_LIB_DIR}/libhpipm.so
@@ -45,18 +46,28 @@ target_link_libraries(picar_arm_safety_node
 
 # --- DEPENDENCIES ---
 if(COMMAND ament_target_dependencies)
-    ament_target_dependencies(picar_arm_safety_node 
+    ament_target_dependencies(picar_arm_safety_node_lib
         rclcpp
         std_msgs
         picar_arm_safety_interface
     )
 else()
-    target_link_libraries(picar_arm_safety_node 
+    target_link_libraries(picar_arm_safety_node_lib
         rclcpp::rclcpp
         std_msgs::std_msgs
         picar_arm_safety_interface::picar_arm_safety_interface
     )
 endif()
+
+add_executable(picar_arm_safety_node 
+    src/main.cpp
+)
+target_compile_options(picar_arm_safety_node PRIVATE
+    ${ACADOS_WARN_FLAGS}
+)
+target_link_libraries(picar_arm_safety_node
+    picar_arm_safety_node_lib
+)
 
 # --- INSTALLATIONS ---
 install(TARGETS 
@@ -69,13 +80,8 @@ install(DIRECTORY
     DESTINATION include
 )
 
-install(DIRECTORY
-    config
-    DESTINATION share/${PROJECT_NAME}
-)
-
 install(FILES 
-    ${ACADOS_GENERATED_CODE_DIR}/libacados_ocp_solver_ocp_picar_arm_safety_filter_809ed34e.so
+    ${ACADOS_GENERATED_CODE_DIR}/libacados_ocp_solver_ocp_picar_arm_safety_filter_5c21b6cb.so
     DESTINATION lib
 )
 
@@ -90,6 +96,19 @@ if(BUILD_TESTING)
         TARGET test_picar_arm_safety
         TIMEOUT 180
     )
+
+    find_package(ament_cmake_gtest REQUIRED)
+    ament_add_gtest(gtest_picar_arm_safety
+        test/test_picar_arm_safety.cpp
+    )
+    if(TARGET gtest_picar_arm_safety)
+        target_compile_options(gtest_picar_arm_safety PRIVATE
+            ${ACADOS_WARN_FLAGS}
+        )
+        target_link_libraries(gtest_picar_arm_safety
+            picar_arm_safety_node_lib
+        )
+    endif()
 endif()
 
 ament_package()
