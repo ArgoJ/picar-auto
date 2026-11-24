@@ -12,11 +12,13 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
+from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 
 
 def generate_launch_description():
     drivers_share = get_package_share_directory('picar_drivers')
     arm_launch_share = get_package_share_directory('picar_arm_launch')
+    foxglove_share = get_package_share_directory('foxglove_bridge')
 
     default_config = os.path.join(drivers_share, 'config', 'picar_params.yaml')
     try:
@@ -72,6 +74,18 @@ def generate_launch_description():
         description='Optional: Startet zusaetzlich kalibration_service_node'
     )
 
+    launch_foxglove_arg = DeclareLaunchArgument(
+        'launch_foxglove',
+        default_value='true',
+        description='Startet foxglove_bridge fuer Foxglove Studio'
+    )
+
+    foxglove_port_arg = DeclareLaunchArgument(
+        'foxglove_port',
+        default_value='8765',
+        description='WebSocket-Port fuer foxglove_bridge'
+    )
+
     # 1. Alle PiCar Hardware-Treiber & Controller (inkl. motor_node, servo_node & camera_ros)
     drivers_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -113,6 +127,17 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('launch_kalibration')),
     )
 
+    # 4. Foxglove Bridge (WebSocket-Server fuer Foxglove Studio)
+    foxglove_launch = IncludeLaunchDescription(
+        XMLLaunchDescriptionSource(
+            os.path.join(foxglove_share, 'launch', 'foxglove_bridge_launch.xml')
+        ),
+        launch_arguments={
+            'port': LaunchConfiguration('foxglove_port'),
+        }.items(),
+        condition=IfCondition(LaunchConfiguration('launch_foxglove')),
+    )
+
     return LaunchDescription([
         config_arg,
         safety_config_arg,
@@ -121,7 +146,10 @@ def generate_launch_description():
         launch_camera_arg,
         launch_arm_arg,
         launch_kalibration_arg,
+        launch_foxglove_arg,
+        foxglove_port_arg,
         drivers_launch,
         arm_launch,
         kalibration_node,
+        foxglove_launch,
     ])

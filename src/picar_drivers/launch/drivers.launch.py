@@ -1,3 +1,4 @@
+import math
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -94,6 +95,32 @@ def generate_launch_description():
             output='screen',
             parameters=[config_file],
             additional_env={'LD_LIBRARY_PATH': camera_ld_path},
+            condition=IfCondition(LaunchConfiguration('launch_camera'))
+        ),
+        # Kamera-TF2: 90°-Hochkant-Montage (roll=+pi/2) -> REP-103 Optical Frame
+        # TODO: x, y, z [m] & ggf. pitch [rad] relativ zu base_link am PiCar ausmessen
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='camera_link_tf_pub',
+            output='screen',
+            arguments=[
+                '--x', '0.0', '--y', '0.0', '--z', '0.0',
+                '--roll', str(math.pi / 2), '--pitch', '0.0', '--yaw', '0.0',
+                '--frame-id', 'base_link', '--child-frame-id', 'camera_link',
+            ],
+            condition=IfCondition(LaunchConfiguration('launch_camera'))
+        ),
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='camera_optical_tf_pub',
+            output='screen',
+            arguments=[
+                '--x', '0.0', '--y', '0.0', '--z', '0.0',
+                '--roll', str(-math.pi / 2), '--pitch', '0.0', '--yaw', str(-math.pi / 2),
+                '--frame-id', 'camera_link', '--child-frame-id', 'camera_optical_frame',
+            ],
             condition=IfCondition(LaunchConfiguration('launch_camera'))
         ),
 
