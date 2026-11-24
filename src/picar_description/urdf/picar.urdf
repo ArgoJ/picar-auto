@@ -323,11 +323,11 @@
   </link>
 
   <!-- 5 cm vor Hinterachse (-0.070 + 0.050), 0.3 cm rechts (-0.003), 10 cm ueber Boden (0.100 - 0.040) -->
-  <!-- TODO: rpy anhand der X/Y-Pfeile auf dem Modul bzw. Kipptest anpassen -->
+  <!-- Ausrichtung (yaw=+pi/2): +X_imu = links (+Y_base), +Y_imu = hinten (-X_base), +Z_imu = oben (+Z_base) -->
   <joint name="imu_joint" type="fixed">
     <parent link="chassis_link"/>
     <child link="imu_link"/>
-    <origin xyz="-0.020 -0.003 0.060" rpy="0.0 0.0 0.0"/>
+    <origin xyz="-0.020 -0.003 0.060" rpy="0.0 0.0 1.57079632679"/>
   </joint>
 
   <link name="camera_link">
