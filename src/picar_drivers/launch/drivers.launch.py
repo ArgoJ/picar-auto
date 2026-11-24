@@ -4,7 +4,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
 
@@ -24,7 +24,17 @@ def generate_launch_description():
         description='Startet die Pi-Kamera (camera_ros)'
     )
 
+    launch_camera_tf_arg = DeclareLaunchArgument(
+        'launch_camera_tf',
+        default_value='true',
+        description='Startet statische Kamera-TF2-Transforms (deaktivieren, wenn URDF/robot_state_publisher aktiv ist)'
+    )
+
     config_file = LaunchConfiguration('config_file')
+    camera_tf_condition = IfCondition(PythonExpression([
+        "'", LaunchConfiguration('launch_camera'), "'.lower() == 'true' and '",
+        LaunchConfiguration('launch_camera_tf'), "'.lower() == 'true'"
+    ]))
 
     # System-libcamera vor /opt/ros/lyrical/lib laden, damit Pi-5 rp1_cfe_downstream erkannt wird
     sys_lib_dir = '/usr/lib/aarch64-linux-gnu'
@@ -109,7 +119,7 @@ def generate_launch_description():
                 '--roll', str(math.pi / 2), '--pitch', '0.0', '--yaw', '0.0',
                 '--frame-id', 'base_link', '--child-frame-id', 'camera_link',
             ],
-            condition=IfCondition(LaunchConfiguration('launch_camera'))
+            condition=camera_tf_condition
         ),
         Node(
             package='tf2_ros',
@@ -121,7 +131,7 @@ def generate_launch_description():
                 '--roll', str(-math.pi / 2), '--pitch', '0.0', '--yaw', str(-math.pi / 2),
                 '--frame-id', 'camera_link', '--child-frame-id', 'camera_optical_frame',
             ],
-            condition=IfCondition(LaunchConfiguration('launch_camera'))
+            condition=camera_tf_condition
         ),
 
         # Joystick Node
@@ -143,5 +153,5 @@ def generate_launch_description():
         ),
     ]
 
-    return LaunchDescription([config_arg, launch_camera_arg] + nodes)
+    return LaunchDescription([config_arg, launch_camera_arg, launch_camera_tf_arg] + nodes)
 

@@ -17,6 +17,7 @@ from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 
 def generate_launch_description():
     drivers_share = get_package_share_directory('picar_drivers')
+    description_share = get_package_share_directory('picar_description')
     arm_launch_share = get_package_share_directory('picar_arm_launch')
     foxglove_share = get_package_share_directory('foxglove_bridge')
 
@@ -86,6 +87,12 @@ def generate_launch_description():
         description='WebSocket-Port fuer foxglove_bridge'
     )
 
+    launch_description_arg = DeclareLaunchArgument(
+        'launch_description',
+        default_value='true',
+        description='Startet robot_state_publisher mit dem PiCar-URDF-Modell'
+    )
+
     # 1. Alle PiCar Hardware-Treiber & Controller (inkl. motor_node, servo_node & camera_ros)
     drivers_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -94,6 +101,9 @@ def generate_launch_description():
         launch_arguments={
             'config_file': LaunchConfiguration('config_file'),
             'launch_camera': LaunchConfiguration('launch_camera'),
+            'launch_camera_tf': PythonExpression([
+                "'false' if '", LaunchConfiguration('launch_description'), "'.lower() == 'true' else 'true'"
+            ]),
         }.items(),
         condition=IfCondition(LaunchConfiguration('launch_drivers')),
     )
@@ -138,6 +148,14 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('launch_foxglove')),
     )
 
+    # 5. URDF / robot_state_publisher (statische & dynamische Robot-Transforms)
+    description_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(description_share, 'launch', 'description.launch.py')
+        ),
+        condition=IfCondition(LaunchConfiguration('launch_description')),
+    )
+
     return LaunchDescription([
         config_arg,
         safety_config_arg,
@@ -148,8 +166,10 @@ def generate_launch_description():
         launch_kalibration_arg,
         launch_foxglove_arg,
         foxglove_port_arg,
+        launch_description_arg,
         drivers_launch,
         arm_launch,
         kalibration_node,
         foxglove_launch,
+        description_launch,
     ])
